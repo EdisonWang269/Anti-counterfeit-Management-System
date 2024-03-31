@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Message Interface</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+  </head>
+  <body>
+
+  <div class="container">
+      <div class="camera">
+          <video id="cameraStream" autoplay></video>
+      </div>
+    <div class="output">
+      <table id="resultsTable">
+        <tr>
+          <th>Barcode</th>
+          <th>Time</th>
+        </tr>
+        <!-- 掃描結果將會插入到這裡 -->
+      </table>
+      <button class="done-btn" id="doneButton">Done</button>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
+
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+      var video = document.getElementById('cameraStream');
+      var resultsTable = document.getElementById('resultsTable');
+      var lastSentBarcode = null;
+      var lastSentTime = 0;
+      var throttleDuration = 10000; 
+      const account = localStorage.getItem('accountName'); 
+
+      function addRowToTable(barcode, time) {
+          var row = resultsTable.insertRow();
+          row.insertCell(0).innerHTML = barcode;
+          row.insertCell(1).innerHTML = time;
+      }
+
+      function sendBarcodeToServer(barcode) {
+          var currentTime = Date.now();
+
+          if (barcode !== lastSentBarcode || currentTime - lastSentTime > throttleDuration) {
+              lastSentBarcode = barcode;
+              lastSentTime = currentTime;
+
+              fetch('/add_message', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ account: account, barcode: barcode })
+              })
+              .then(response => response.json())
+              .then(data => {
+              if (data.success) {
+                  var currentTime = new Date().toLocaleTimeString();
+                  addRowToTable(barcode, currentTime);
+                  
+              }
+          })
+          .catch(error => {
+              console.error('Error:', error);
+          });
+      }}
+
+      Quagga.onDetected(function(result) {
+          var code = result.codeResult.code;
+          console.log('Detected ISBN:', code);
+          sendBarcodeToServer(code);
+      });
+
+      if (navigator.mediaDevices.getUserMedia) {
+          navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+              .then(function(stream) {
+                  video.srcObject = stream;
+                  Quagga.init({
+                      inputStream: {
+                          name: "Live",
+                          type: "LiveStream",
+                          target: video
+                      },
+                      decoder: {
+                          readers: ["ean_reader"]
+                      }
+                  }, function(err) {
+                      if (err) {
+                          console.log(err);
+                          return;
+                      }
+                      Quagga.start();
+                  });
+              })
+              .catch(function(error) {
+                  console.log('Something went wrong!', error);
+              });
+      }
+  });
+
+
+
+
+  document.getElementById('doneButton').addEventListener('click', function() {
+      window.location.href = "/";
+  });
+    </script>
+  </body>
+  </html>

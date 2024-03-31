@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+  </head>
+  <body>
+
+  <div class="login-container">
+    <h2>Please enter your name and password</h2>
+    <form id="loginForm">
+      <div class="input-group">
+        <input type="text" id="name" name="name" placeholder="Name">
+      </div>
+      <div class="input-group">
+        <input type="password" id="password" name="password" placeholder="Password">
+      </div>
+      <button type="submit" class="submit-btn">Log in</button>
+    </form>
+  </div>
+
+  <script>
+      document.getElementById('loginForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        var name = document.getElementById('name').value;
+        var password = document.getElementById('password').value;
+        
+        // 創建一個 AJAX 請求
+        fetch('/login', {
+          method: 'POST', 
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: name, password: password }), // 將數據轉換為 JSON
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log(data);
+          if(data.success) {
+            // 處理登錄成功
+            alert('Login successful');
+            localStorage.setItem('accountName', name);
+            window.location.href = "addMess";
+          } else {
+            // 處理登錄失敗
+            alert('Login failed: ' + data.message);
+          }
+        })
+        .catch((error) => {
+          console.error('Error:', error);
+          alert('An error occurred');
+        });
+      });
+      </script>
+  </body>
+  </html>

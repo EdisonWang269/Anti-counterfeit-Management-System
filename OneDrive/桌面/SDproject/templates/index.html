@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Who Are You?</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    
+  </head>
+
+  <body>
+
+    <div class="container">
+      <div class="question">Who are you?</div>
+      <button class="button" onclick="identifyUser('Customer')">Customer</button>
+      <button class="button" onclick="identifyUser('Company')">Company</button>
+    </div>
+
+    <script>
+    function identifyUser(userType) {
+      console.log(userType);
+      const hyper = userType+"LoginPage"
+      window.location.href = hyper;
+    }
+    </script>
+
+  </body>
+  </html>
