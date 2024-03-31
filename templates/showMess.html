@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consumer Frontend</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    
+  </head>
+  <body>
+
+    <div class="container">
+      <div class="camera" id="cameraStreamContainer">
+        <video id="cameraStream" autoplay playsinline></video>
+      </div>
+      <div class="output">
+        <ul id="barcodeList" class="toggle-list">
+        </ul>
+      </div>
+    </div>
+    <div class="button-container">
+    <button class="save-btn" id="saveButton">Save All</button>
+    <button class="done-btn" id="doneButton">Done</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
+  <script>
+    let scannedBarcodes = [];
+    document.addEventListener('DOMContentLoaded', function() {
+    var video = document.getElementById('cameraStream');
+    
+    var lastSentBarcode = null;
+    var lastSentTime = 0;
+    var throttleDuration = 10000;
+    const account = localStorage.getItem('accountName');
+    if (account) {
+      fetchOrders(account);
+    }
+    function fetchOrders(account) {
+    fetch('/get_orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ account: account }),
+    })
+    .then(response => response.json())
+    .then(orders => {
+      orders.forEach(order => {
+        const barcodeData = {
+          barcode: order.barcode,
+          results: order.details
+        };
+        addBarcodeToList(barcodeData);
+      });
+    })
+    .catch((error) => {
+      console.error('Error:', error);
+    });
+  }
+
+    
+
+    var barcodeList = document.getElementById('barcodeList');
+
+    function toggleDetails(event) {
+      var details = event.currentTarget.querySelector('.toggle-content');
+      if (details) {
+        details.style.display = details.style.display === 'none' ? 'block' : 'none';
+      }
+      
+    }
+    
+    function addBarcodeToList(barcodeData) {
+      var listItem = document.createElement('li');
+      listItem.textContent = barcodeData.barcode;
+      listItem.classList.add('toggle-list-item');
+      listItem.addEventListener('click', toggleDetails);
+
+      var detailsDiv = document.createElement('div');
+      detailsDiv.classList.add('toggle-content');
+      barcodeData.results.forEach(function(result) {
+        var resultDiv = document.createElement('div');
+        resultDiv.textContent = `${result.company_name || ''} ${result.company_location || ''} ${result.arrive_time || ''}`;
+        detailsDiv.appendChild(resultDiv);
+      });
+      if (barcodeList.children.length === 0) {
+      barcodeList.style.padding = '20px';
+    }
+
+      listItem.appendChild(detailsDiv);
+      barcodeList.appendChild(listItem);
+      scannedBarcodes.push(barcodeData.barcode);
+    }
+
+  function fetchBarcodeInformation(barcode) {
+      fetch(`/show_message/${barcode}`)
+        .then(response => response.json())
+        .then(data => {
+          var barcodeData = {
+          
+        };
+        console.log(barcodeData)
+          addBarcodeToList(data.message );
+          
+        })
+        .catch(error => {
+          console.error('Error:', error);
+        });
+    }
+
+
+    Quagga.onDetected(function(result) {
+      var code = result.codeResult.code;
+      var currentTime = Date.now();
+
+      if (code !== lastSentBarcode || currentTime - lastSentTime > throttleDuration) {
+        lastSentBarcode = code;
+        lastSentTime = currentTime;
+        console.log('Detected Barcode:', code);
+        fetchBarcodeInformation(code);
+      }
+    });
+
+    if (navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(function(stream) {
+          video.srcObject = stream;
+          Quagga.init({
+            inputStream: {
+              name: "Live",
+              type: "LiveStream",
+              target: video
+            },
+            decoder: {
+              readers: ["ean_reader"]
+            }
+          }, function(err) {
+            if (err) {
+              console.log(err);
+              return;
+            }
+            Quagga.start();
+          });
+        })
+        .catch(function(error) {
+          console.log('Something went wrong!', error);
+        });
+    }
+
+    document.getElementById('doneButton').addEventListener('click', function() {
+      window.location.href = "/";
+    });
+  });
+
+  function saveOrder(account, barcode) {
+    fetch('/save_order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ account: account, barcode: barcode }),
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert(`Barcode saved: ${barcode}`);
+      } else {
+        console.error('Failed to save barcode:', barcode);
+      }
+    })
+    .catch((error) => {
+      console.error('Error:', error);
+    });
+  }
+
+  function saveAllOrders() {
+    const account = localStorage.getItem('accountName'); 
+    console.log(account,scannedBarcodes)
+
+    if (!account) {
+      alert('No account is logged in.');
+      return;
+    }
+
+    scannedBarcodes.forEach((barcode) => {
+      console.log(account,barcode);
+      saveOrder(account, barcode);
+    });
+    scannedBarcodes = [];
+  }
+  document.getElementById('saveButton').addEventListener('click', function() {
+    saveAllOrders();
+    });
+
+    </script>
+  </body>
+  </html>
